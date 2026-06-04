@@ -77,6 +77,22 @@ def _to_plain_dict(tree):
     return tree
 
 
+def _load_json_if_valid(path: Path) -> dict | None:
+    """Load a JSON object from disk, returning None for missing/corrupt files."""
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        logging.warning(f"Ignoring invalid JSON file {path}")
+        return None
+    if not isinstance(data, dict):
+        logging.warning(f"Expected JSON object in {path}, got {type(data).__name__}")
+        return None
+    return data
+
+
 class LeRobotEpisodeLoader:
     """
     Episode-level data loader for LeRobot format datasets.
@@ -183,13 +199,17 @@ class LeRobotEpisodeLoader:
         assert stats_path.exists(), (
             f"{stats_path} does not exist for {self.dataset_path}, please use gr00t/data/stats.py to generate it"
         )
-        with open(stats_path, "r") as f:
-            self.stats = json.load(f)
+        stats = _load_json_if_valid(stats_path)
+        assert stats is not None, (
+            f"{stats_path} is missing or invalid for {self.dataset_path}, "
+            "please use gr00t/data/stats.py to regenerate it"
+        )
+        self.stats = stats
 
         relative_stats_path = meta_dir / LEROBOT_RELATIVE_STATS_FILE_NAME
-        if relative_stats_path.exists():
-            with open(relative_stats_path, "r") as f:
-                self.stats["relative_action"] = json.load(f)
+        relative_stats = _load_json_if_valid(relative_stats_path)
+        if relative_stats is not None:
+            self.stats["relative_action"] = relative_stats
 
         # Extract key configuration parameters
         self.feature_config = self.info_meta.get("features", {})

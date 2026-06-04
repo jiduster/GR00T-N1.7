@@ -578,20 +578,21 @@ version = "2.7.4.post1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux'",
+    "platform_machine == 'aarch64' and sys_platform == 'linux'",
     "sys_platform == 'darwin'",
     "sys_platform != 'darwin' and sys_platform != 'linux'",
 ]
 dependencies = [
-    { name = "einops", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
+    { name = "einops", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
     { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
-    { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux'" },
+    { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine != 'x86_64' and sys_platform == 'linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/11/34/9bf60e736ed7bbe15055ac2dab48ec67d9dbd088d2b4ae318fd77190ab4e/flash_attn-2.7.4.post1.tar.gz", hash = "sha256:f03485c9a49a4d68d0733acdcad80ab0e72afa025a777fdc2966ceccf9d51765", size = 5986610, upload-time = "2025-01-30T06:39:51.93Z" }
 
 [[package]]
 name = "flash-attn"
 version = "2.7.4.post1"
-source = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl" }
+source = { path = "scripts/deployment/dgpu/wheels/flash_attn-2.7.4.post1+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl" }
 resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
@@ -600,28 +601,7 @@ dependencies = [
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl", hash = "sha256:f09928f2c7e4dfbe6efca5a997862898495263c87afe662c18fb1936eb192eab" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "einops" },
-    { name = "torch" },
-]
-
-[[package]]
-name = "flash-attn"
-version = "2.7.4.post1"
-source = { path = "scripts/deployment/dgpu/wheels/flash_attn-2.7.4.post1-cp310-cp310-linux_aarch64.whl" }
-resolution-markers = [
-    "platform_machine == 'aarch64' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "einops", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-]
-wheels = [
-    { filename = "flash_attn-2.7.4.post1-cp310-cp310-linux_aarch64.whl", hash = "sha256:7127cf58a7642d7350527a57daf14b8d1a8301ccd2805eaea1897f5e85535f30" },
+    { filename = "flash_attn-2.7.4.post1+cu12torch2.7cxx11abifalse-cp310-cp310-linux_x86_64.whl", hash = "sha256:f09928f2c7e4dfbe6efca5a997862898495263c87afe662c18fb1936eb192eab" },
 ]
 
 [package.metadata]
@@ -724,9 +704,8 @@ dependencies = [
     { name = "diffusers" },
     { name = "dm-tree" },
     { name = "einops" },
-    { name = "flash-attn", version = "2.7.4.post1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
-    { name = "flash-attn", version = "2.7.4.post1", source = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "flash-attn", version = "2.7.4.post1", source = { path = "scripts/deployment/dgpu/wheels/flash_attn-2.7.4.post1-cp310-cp310-linux_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "flash-attn", version = "2.7.4.post1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
+    { name = "flash-attn", version = "2.7.4.post1", source = { path = "scripts/deployment/dgpu/wheels/flash_attn-2.7.4.post1+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "gitpython" },
     { name = "gymnasium" },
     { name = "huggingface-hub", extra = ["cli"] },
@@ -744,12 +723,10 @@ dependencies = [
     { name = "pyzmq" },
     { name = "scipy" },
     { name = "tensorrt-cu12", marker = "platform_machine == 'x86_64'" },
-    { name = "tensorrt-cu13", marker = "platform_machine == 'aarch64'" },
     { name = "termcolor" },
     { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux'" },
-    { name = "torchcodec", version = "0.4.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64'" },
-    { name = "torchcodec", version = "0.10.0a0", source = { path = "scripts/deployment/dgpu/wheels/torchcodec-0.10.0a0-cp310-cp310-linux_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "torchcodec", marker = "platform_machine == 'x86_64'" },
     { name = "torchvision", version = "0.22.1", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "torchvision", version = "0.22.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "torchvision", version = "0.22.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
@@ -783,9 +760,8 @@ requires-dist = [
     { name = "diffusers", specifier = "==0.35.1" },
     { name = "dm-tree" },
     { name = "einops", specifier = "==0.8.1" },
-    { name = "flash-attn", marker = "(python_full_version != '3.10.*' and platform_machine == 'aarch64') or (python_full_version < '3.10' and platform_machine == 'x86_64') or (python_full_version == '3.11.*' and platform_machine == 'x86_64') or (python_full_version >= '3.13' and platform_machine == 'x86_64') or (platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'linux'", specifier = "==2.7.4.post1" },
-    { name = "flash-attn", marker = "python_full_version == '3.10.*' and platform_machine == 'aarch64' and sys_platform == 'linux'", path = "scripts/deployment/dgpu/wheels/flash_attn-2.7.4.post1-cp310-cp310-linux_aarch64.whl" },
-    { name = "flash-attn", marker = "python_full_version == '3.10.*' and platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl" },
+    { name = "flash-attn", marker = "python_full_version < '3.10' or python_full_version == '3.11.*' or python_full_version >= '3.13' or platform_machine != 'x86_64' or sys_platform != 'linux'", specifier = "==2.7.4.post1" },
+    { name = "flash-attn", marker = "python_full_version == '3.10.*' and platform_machine == 'x86_64' and sys_platform == 'linux'", path = "scripts/deployment/dgpu/wheels/flash_attn-2.7.4.post1+cu12torch2.7cxx11abiFALSE-cp310-cp310-linux_x86_64.whl" },
     { name = "flash-attn", marker = "python_full_version == '3.12.*' and platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.7cxx11abiFALSE-cp312-cp312-linux_x86_64.whl" },
     { name = "gitpython", specifier = "==3.1.46" },
     { name = "gymnasium", specifier = "==1.2.2" },
@@ -809,12 +785,10 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "scipy", specifier = "==1.15.3" },
     { name = "tensorrt-cu12", marker = "platform_machine == 'x86_64'", specifier = ">=10.15.1.29" },
-    { name = "tensorrt-cu13", marker = "platform_machine == 'aarch64'", specifier = ">=10.15.1.29" },
     { name = "termcolor", specifier = "==3.2.0" },
     { name = "torch", marker = "sys_platform != 'linux'", specifier = "==2.7.1" },
     { name = "torch", marker = "sys_platform == 'linux'", specifier = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" },
-    { name = "torchcodec", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", path = "scripts/deployment/dgpu/wheels/torchcodec-0.10.0a0-cp310-cp310-linux_aarch64.whl" },
-    { name = "torchcodec", marker = "platform_machine == 'x86_64'", specifier = "==0.4.0" },
+    { name = "torchcodec", marker = "platform_machine == 'x86_64'", specifier = "==0.5.0" },
     { name = "torchvision", marker = "sys_platform != 'linux'", specifier = "==0.22.1" },
     { name = "torchvision", marker = "sys_platform == 'linux'", specifier = "==0.22.1", index = "https://download.pytorch.org/whl/cu128" },
     { name = "transformers", specifier = "==4.57.3" },
@@ -2200,30 +2174,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/52/b0/2306f25ea0893d0080091c75b5df55d5e0580183293b4839d66f1fcab457/tensorrt_cu12_libs-10.15.1.29.tar.gz", hash = "sha256:b2a4ad7d46e6f1a43bb413cd8efc8ecd511a365beccd75515db5f65dacab6119", size = 681, upload-time = "2026-01-29T21:13:21.179Z" }
 
 [[package]]
-name = "tensorrt-cu13"
-version = "10.15.1.29"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "tensorrt-cu13-bindings", marker = "platform_machine == 'aarch64' or sys_platform != 'linux'" },
-    { name = "tensorrt-cu13-libs", marker = "platform_machine == 'aarch64' or sys_platform != 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/0b/ff3683ddf1960227fb2c6210e92ab83c26eda92091046c123d8dfc1adc93/tensorrt_cu13-10.15.1.29.tar.gz", hash = "sha256:60edcdf1a68526732ea613c309283af036f418f6ebcbc8e18d24566b74d776e0", size = 19084, upload-time = "2026-01-30T07:42:55.055Z" }
-
-[[package]]
-name = "tensorrt-cu13-bindings"
-version = "10.15.1.29"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/ac/11352689bb6562a41cdd0d1a6671e36cd8d2bdc55b651078868ea1b82ef0/tensorrt_cu13_bindings-10.15.1.29-cp310-none-manylinux_2_35_aarch64.whl", hash = "sha256:04f4db7e418c24d913bb5c21a745b066747d80ec8fabe0921b70a259af284b83", size = 1152064, upload-time = "2026-01-29T21:00:55.526Z" },
-]
-
-[[package]]
-name = "tensorrt-cu13-libs"
-version = "10.15.1.29"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1a/dd/745dacecd032db5720e8bacfbbb436319eb49b621142414b3abf19cafd9a/tensorrt_cu13_libs-10.15.1.29.tar.gz", hash = "sha256:d07fe8b65ce7edb94e805d0b6e9653afe742610b7d5e1b270c918bc9e58a36b1", size = 681, upload-time = "2026-01-29T20:58:43.318Z" }
-
-[[package]]
 name = "termcolor"
 version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2338,41 +2288,17 @@ dependencies = [
     { name = "typing-extensions", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.7.1%2Bcu128-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:aca3472608e3c92df5166537595687b53a6c997082478b372427b043dbed98d0" },
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.7.1%2Bcu128-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:d6c3cba198dc93f93422a8545f48a6697890366e4b9701f54351fc27e2304bd3" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.7.1%2Bcu128-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:aca3472608e3c92df5166537595687b53a6c997082478b372427b043dbed98d0", upload-time = "2025-06-03T18:30:30Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.7.1%2Bcu128-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:d6c3cba198dc93f93422a8545f48a6697890366e4b9701f54351fc27e2304bd3", upload-time = "2025-06-03T18:30:47Z" },
 ]
 
 [[package]]
 name = "torchcodec"
-version = "0.4.0"
+version = "0.5"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "sys_platform == 'darwin'",
-    "sys_platform != 'darwin' and sys_platform != 'linux'",
-    "platform_machine == 'x86_64' and sys_platform == 'linux'",
-]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/16/6713f9b26165f33f09e7b637f7189ec308b7f2ec3050cc60397f1b9f232e/torchcodec-0.4.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:950ccb7d113e9fdc3c05361ce7f5c09bde120df481eb3e6d8ce79db9e202e30f", size = 1317552, upload-time = "2025-05-16T08:48:12.567Z" },
+    { url = "https://files.pythonhosted.org/packages/52/6e/d12c327338d9561f2ef0896218f163e6635d4ae1d688f1f28664d729b1ab/torchcodec-0.5-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:f760e49803d7767e10577d3d20d1a9dd0ad5adebd1ecbf7ce941176e8c388f54", size = 1366065, upload-time = "2025-07-23T17:42:41.88Z" },
 ]
-
-[[package]]
-name = "torchcodec"
-version = "0.10.0a0"
-source = { path = "scripts/deployment/dgpu/wheels/torchcodec-0.10.0a0-cp310-cp310-linux_aarch64.whl" }
-resolution-markers = [
-    "platform_machine == 'aarch64' and sys_platform == 'linux'",
-]
-wheels = [
-    { filename = "torchcodec-0.10.0a0-cp310-cp310-linux_aarch64.whl", hash = "sha256:69ad4512d5ddc3fdde44623f095ce60098a72d65216c7e4b010197a34b213e05" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "numpy", marker = "extra == 'dev'" },
-    { name = "pillow", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "torchvision"
@@ -2387,7 +2313,7 @@ dependencies = [
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.22.1-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:3a41b87628c0d6095839c43a1dd706670e7e5a56edc5860e700e1ba22c3ef8af" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.22.1-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:3a41b87628c0d6095839c43a1dd706670e7e5a56edc5860e700e1ba22c3ef8af", upload-time = "2025-06-03T18:37:29Z" },
 ]
 
 [[package]]
@@ -2422,7 +2348,7 @@ dependencies = [
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.22.1%2Bcu128-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:538f4db667286d939b4eee0a66d31ed21b51186668006b0e0ffe20338ecc7e00" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.22.1%2Bcu128-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:538f4db667286d939b4eee0a66d31ed21b51186668006b0e0ffe20338ecc7e00", upload-time = "2025-06-03T18:37:28Z" },
 ]
 
 [[package]]
@@ -2478,7 +2404,7 @@ dependencies = [
     { name = "setuptools", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/triton-3.3.1-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9ee4c2ae140cedfb6f9e69e54457fa288aab6f138fd1ac4b71da92cdfa660901" },
+    { url = "https://download-r2.pytorch.org/whl/triton-3.3.1-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9ee4c2ae140cedfb6f9e69e54457fa288aab6f138fd1ac4b71da92cdfa660901", upload-time = "2026-01-22T23:25:46Z" },
 ]
 
 [[package]]

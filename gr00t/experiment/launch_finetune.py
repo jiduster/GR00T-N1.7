@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
     config.model.load_bf16 = False
     config.model.reproject_vision = False
-    config.model.model_name = "nvidia/Cosmos-Reason2-2B"
+    config.model.model_name = ft_config.backbone_model_path or "nvidia/Cosmos-Reason2-2B"
     config.model.backbone_trainable_params_fp32 = True
     config.model.use_relative_action = True
 

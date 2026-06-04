@@ -193,6 +193,9 @@ class ShardedSingleStepDataset(ShardedDataset):
             [self.get_effective_episode_length(idx) for idx in shuffled_episode_indices]
         ).astype(int)
         num_shards = np.ceil(total_steps / self.shard_size).astype(int)
+        max_non_empty_shards = len(shuffled_episode_indices) * num_splits
+        # We cannot create more non-empty shards than available episode sub-sequences.
+        num_shards = min(num_shards, max_non_empty_shards)
 
         # Initialize shard containers
         sharded_episodes = [[] for _ in range(num_shards)]
@@ -211,6 +214,7 @@ class ShardedSingleStepDataset(ShardedDataset):
                 shard_lengths[shard_index] += len(split_step_indices)
 
         # Validate shard creation
+        assert num_shards > 0, "Number of shards must be greater than 0"
         assert all(shard_lengths[i] > 0 for i in range(num_shards)), (
             "All shards must have length greater than 0"
         )

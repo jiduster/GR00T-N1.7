@@ -5,6 +5,7 @@ set -x -euo pipefail
 NUM_GPUS="${NUM_GPUS:-1}"
 MASTER_PORT="${MASTER_PORT:-29500}"
 SAVE_STEPS="${SAVE_STEPS:-1000}"
+SAVE_TOTAL_LIMIT="${SAVE_TOTAL_LIMIT:-5}"
 MAX_STEPS="${MAX_STEPS:-10000}"
 USE_WANDB="${USE_WANDB:-1}"
 DATALOADER_NUM_WORKERS="${DATALOADER_NUM_WORKERS:-4}"
@@ -14,6 +15,7 @@ NUM_SHARDS_PER_EPOCH="${NUM_SHARDS_PER_EPOCH:-100000}"
 EPISODE_SAMPLING_RATE="${EPISODE_SAMPLING_RATE:-0.1}"
 
 BASE_MODEL_PATH=""
+BACKBONE_MODEL_PATH=""
 DATASET_PATH=""
 MODALITY_CONFIG_PATH=""
 EMBODIMENT_TAG=""
@@ -27,10 +29,21 @@ usage() {
     cat <<'EOF'
 Usage: bash examples/finetune.sh \
   --base-model-path <path> \
+  [--backbone-model-path <path>] \
   --dataset-path <path> \
   --embodiment-tag <tag> \
   --output-dir <path> \
   [--modality-config-path <path>] \
+  [--num-gpus <value>] \
+  [--save-steps <value>] \
+  [--save-total-limit <value>] \
+  [--max-steps <value>] \
+  [--global-batch-size <value>] \
+  [--dataloader-num-workers <value>] \
+  [--shard-size <value>] \
+  [--num-shards-per-epoch <value>] \
+  [--episode-sampling-rate <value>] \
+  [--use-wandb | --no-use-wandb] \
   [--state-dropout-prob <value>] \
   [--save-only-model] \
   [-- <extra launch_finetune.py args>...]
@@ -43,12 +56,20 @@ while [ "$#" -gt 0 ]; do
             BASE_MODEL_PATH="$2"
             shift 2
             ;;
+        --backbone-model-path)
+            BACKBONE_MODEL_PATH="$2"
+            shift 2
+            ;;
         --dataset-path)
             DATASET_PATH="$2"
             shift 2
             ;;
         --modality-config-path)
             MODALITY_CONFIG_PATH="$2"
+            shift 2
+            ;;
+        --num-gpus)
+            NUM_GPUS="$2"
             shift 2
             ;;
         --embodiment-tag)
@@ -59,6 +80,38 @@ while [ "$#" -gt 0 ]; do
             OUTPUT_DIR="$2"
             shift 2
             ;;
+        --save-steps)
+            SAVE_STEPS="$2"
+            shift 2
+            ;;
+        --save-total-limit)
+            SAVE_TOTAL_LIMIT="$2"
+            shift 2
+            ;;
+        --max-steps)
+            MAX_STEPS="$2"
+            shift 2
+            ;;
+        --global-batch-size)
+            GLOBAL_BATCH_SIZE="$2"
+            shift 2
+            ;;
+        --dataloader-num-workers)
+            DATALOADER_NUM_WORKERS="$2"
+            shift 2
+            ;;
+        --shard-size)
+            SHARD_SIZE="$2"
+            shift 2
+            ;;
+        --num-shards-per-epoch)
+            NUM_SHARDS_PER_EPOCH="$2"
+            shift 2
+            ;;
+        --episode-sampling-rate)
+            EPISODE_SAMPLING_RATE="$2"
+            shift 2
+            ;;
         --experiment-name)
             EXPERIMENT_NAME="$2"
             shift 2
@@ -66,6 +119,14 @@ while [ "$#" -gt 0 ]; do
         --wandb-project)
             WANDB_PROJECT="$2"
             shift 2
+            ;;
+        --use-wandb)
+            USE_WANDB=1
+            shift
+            ;;
+        --no-use-wandb)
+            USE_WANDB=0
+            shift
             ;;
         --state-dropout-prob)
             STATE_DROPOUT_PROB="$2"
@@ -113,7 +174,7 @@ LAUNCH_CMD=(
     --num_gpus "$NUM_GPUS"
     --output_dir "$OUTPUT_DIR"
     --save_steps "$SAVE_STEPS"
-    --save_total_limit 5
+    --save_total_limit "$SAVE_TOTAL_LIMIT"
     --max_steps "$MAX_STEPS"
     --warmup_ratio 0.05
     --weight_decay 1e-5
@@ -127,6 +188,9 @@ LAUNCH_CMD=(
     --episode_sampling_rate "$EPISODE_SAMPLING_RATE"
 )
 
+if [ -n "$BACKBONE_MODEL_PATH" ]; then
+    LAUNCH_CMD+=(--backbone_model_path "$BACKBONE_MODEL_PATH")
+fi
 if [ -n "$MODALITY_CONFIG_PATH" ]; then
     LAUNCH_CMD+=(--modality_config_path "$MODALITY_CONFIG_PATH")
 fi

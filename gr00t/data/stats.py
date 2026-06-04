@@ -49,6 +49,30 @@ LE_ROBOT_STATS_FILENAME = "meta/stats.json"
 LE_ROBOT_REL_STATS_FILENAME = "meta/relative_stats.json"
 
 
+def _load_json_dict_if_valid(path: Path) -> dict | None:
+    """Load a JSON dict from disk, returning None for missing/corrupt files."""
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        print(f"Warning: ignoring invalid JSON file {path}, will regenerate it.")
+        return None
+    if not isinstance(data, dict):
+        print(f"Warning: expected JSON object in {path}, got {type(data).__name__}.")
+        return None
+    return data
+
+
+def _atomic_write_json(data: dict, path: Path) -> None:
+    """Atomically write JSON to avoid leaving truncated files on interruption."""
+    tmp_path = path.with_name(f"{path.name}.tmp")
+    with open(tmp_path, "w") as f:
+        json.dump(data, f, indent=4)
+    tmp_path.replace(path)
+
+
 def calculate_dataset_statistics(
     parquet_paths: list[Path], features: list[str] | None = None
 ) -> dict[str, dict[str, float]]:
@@ -97,10 +121,9 @@ def calculate_dataset_statistics(
 
 def check_stats_validity(dataset_path: Path | str, features: list[str]):
     stats_path = Path(dataset_path) / LE_ROBOT_STATS_FILENAME
-    if not stats_path.exists():
+    stats = _load_json_dict_if_valid(stats_path)
+    if stats is None:
         return False
-    with open(stats_path, "r") as f:
-        stats = json.load(f)
     for feature in features:
         if feature not in stats:
             return False
@@ -127,8 +150,7 @@ def generate_stats(dataset_path: Path | str):
     parquet_files = list(dataset_path.glob(LE_ROBOT_DATA_FILENAME))
     stats = calculate_dataset_statistics(parquet_files, lowdim_features)
     stats_path = dataset_path / LE_ROBOT_STATS_FILENAME
-    with open(stats_path, "w") as f:
-        json.dump(stats, f, indent=4)
+    _atomic_write_json(stats, stats_path)
 
 
 class RelativeActionLoader:
@@ -236,18 +258,13 @@ def generate_rel_stats(dataset_path: Path | str, embodiment_tag: EmbodimentTag) 
         if action_config.rep == ActionRepresentation.RELATIVE
     ]
     stats_path = Path(dataset_path) / LE_ROBOT_REL_STATS_FILENAME
-    if stats_path.exists():
-        with open(stats_path, "r") as f:
-            stats = json.load(f)
-    else:
-        stats = {}
+    stats = _load_json_dict_if_valid(stats_path) or {}
     for action_key in sorted(action_keys):
         if action_key in stats:
             continue
         print(f"Generating relative stats for {dataset_path} {embodiment_tag} {action_key}")
         stats[action_key] = calculate_stats_for_key(dataset_path, embodiment_tag, action_key)
-    with open(stats_path, "w") as f:
-        json.dump(to_json_serializable(dict(stats)), f, indent=4)
+    _atomic_write_json(to_json_serializable(dict(stats)), stats_path)
 
 
 def main(

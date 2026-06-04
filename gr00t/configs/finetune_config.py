@@ -44,6 +44,12 @@ class FinetuneConfig:
     If None, use the pre-registered modality config in `gr00t/configs/data/embodiment_configs.py`. 
     """
 
+    backbone_model_path: str | None = None
+    """Optional path to the VLM backbone resources used by GR00T N1.7.
+    Set this for fully offline runs, e.g. a local Cosmos-Reason2-2B snapshot.
+    If None, defaults to the public Hub identifier baked into the model config.
+    """
+
     # --- Model Tuning Flags ---
     tune_llm: bool = False
     """If True, fine-tune the language model (LLM) backbone during training."""
