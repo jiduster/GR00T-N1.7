@@ -165,7 +165,13 @@ class Gr00tN1d7ActionHead(nn.Module):
         backbone_output["backbone_features"] = backbone_features
         return backbone_output
 
-    def forward(self, backbone_output: BatchFeature, action_input: BatchFeature) -> BatchFeature:
+    def forward(
+        self,
+        backbone_output: BatchFeature,
+        action_input: BatchFeature,
+        return_actions: bool = False,
+        action_num_steps: int | None = None,
+    ) -> BatchFeature:
         """
         Forward pass through the action head.
 
@@ -263,13 +269,22 @@ class Gr00tN1d7ActionHead(nn.Module):
         action_loss = F.mse_loss(pred_actions, velocity, reduction="none") * action_mask
         loss = action_loss.sum() / (action_mask.sum() + 1e-6)
 
-        return {
+        output = {
             "loss": loss,
             "action_loss": action_loss,
             "action_mask": action_mask,
             "backbone_features": vl_embeds,
             "state_features": state_features,
         }
+        if return_actions:
+            output["sampled_actions"] = self.sample_actions_euler(
+                vl_embeds=vl_embeds,
+                state_features=state_features,
+                embodiment_id=embodiment_id,
+                backbone_output=backbone_output,
+                num_steps=action_num_steps or 1,
+            )
+        return output
 
     def _encode_features(
         self, backbone_output: BatchFeature, action_input: BatchFeature
@@ -307,6 +322,62 @@ class Gr00tN1d7ActionHead(nn.Module):
         state_features = self.state_encoder(state, embodiment_id)
 
         return BatchFeature(data={"backbone_features": vl_embeds, "state_features": state_features})
+
+    def sample_actions_euler(
+        self,
+        vl_embeds: torch.Tensor,
+        state_features: torch.Tensor,
+        embodiment_id: torch.Tensor,
+        backbone_output: BatchFeature,
+        num_steps: int = 1,
+    ) -> torch.Tensor:
+        """Differentiable flow-matching Euler sampler used by the DexWM auxiliary.
+
+        This is the training counterpart of ``get_action_with_features``: same
+        integration, but autograd is left enabled so ``wm_loss`` can update the
+        action head. ``vl_embeds`` and ``state_features`` should already be the
+        tensors computed in ``forward`` so the backbone is not re-run.
+        """
+        if num_steps < 1:
+            raise ValueError(f"action_num_steps must be >= 1, got {num_steps}")
+        batch_size = vl_embeds.shape[0]
+        device = vl_embeds.device
+        actions = torch.randn(
+            size=(batch_size, self.config.action_horizon, self.action_dim),
+            dtype=vl_embeds.dtype,
+            device=device,
+        )
+        dt = 1.0 / float(num_steps)
+        for step in range(num_steps):
+            t_cont = step / float(num_steps)
+            t_discretized = int(t_cont * self.num_timestep_buckets)
+            timesteps_tensor = torch.full(
+                size=(batch_size,), fill_value=t_discretized, device=device, dtype=torch.long
+            )
+            action_features = self.action_encoder(actions, timesteps_tensor, embodiment_id)
+            if self.config.add_pos_embed:
+                pos_ids = torch.arange(action_features.shape[1], dtype=torch.long, device=device)
+                pos_embs = self.position_embedding(pos_ids).unsqueeze(0)
+                action_features = action_features + pos_embs
+            sa_embs = torch.cat((state_features, action_features), dim=1)
+            if self.config.use_alternate_vl_dit:
+                model_output = self.model(
+                    hidden_states=sa_embs,
+                    encoder_hidden_states=vl_embeds,
+                    timestep=timesteps_tensor,
+                    image_mask=backbone_output.image_mask,
+                    backbone_attention_mask=backbone_output.backbone_attention_mask,
+                )
+            else:
+                model_output = self.model(
+                    hidden_states=sa_embs,
+                    encoder_hidden_states=vl_embeds,
+                    timestep=timesteps_tensor,
+                )
+            pred = self.action_decoder(model_output, embodiment_id)
+            pred_velocity = pred[:, -self.action_horizon :]
+            actions = actions + dt * pred_velocity
+        return actions
 
     @torch.no_grad()
     def get_action_with_features(
@@ -540,6 +611,20 @@ class Gr00tN1d7(PreTrainedModel):
             model_type=config.backbone_model_type,
             transformers_loading_kwargs=transformers_loading_kwargs,
         )
+        # DexWM is attached later via object.__setattr__ so it is not a child
+        # module, not saved in checkpoints, and not wrapped by DDP/DeepSpeed.
+        self.dexwm_auxiliary = None
+
+    def _maybe_move_dexwm(self) -> None:
+        aux = getattr(self, "dexwm_auxiliary", None)
+        if aux is None:
+            return
+        try:
+            aux_device = next(aux.world_model.parameters()).device
+        except StopIteration:
+            return
+        if aux_device != self.device:
+            aux.to_model_device(self.device, dtype=self.dtype)
 
     def prepare_input(self, inputs: dict) -> Tuple[BatchFeature, BatchFeature]:
         """Prepare inputs for backbone and action head."""
@@ -558,8 +643,15 @@ class Gr00tN1d7(PreTrainedModel):
             inputs.pop("vlm_content")
             inputs.update(prep)
 
+        sidecar = {}
+        for key in list(inputs.keys()):
+            if isinstance(key, str) and key.startswith("dexwm_"):
+                sidecar[key] = inputs.pop(key)
+
         backbone_inputs = self.backbone.prepare_input(inputs)
         action_inputs = self.action_head.prepare_input(inputs)
+        for key, value in sidecar.items():
+            action_inputs[key] = value
 
         # Move to device and dtype
         def to_device_with_dtype(x):
@@ -587,8 +679,82 @@ class Gr00tN1d7(PreTrainedModel):
         # Prepare inputs for backbone and action head
         backbone_inputs, action_inputs = self.prepare_input(inputs)
         backbone_outputs = self.backbone(backbone_inputs)
-        action_outputs = self.action_head(backbone_outputs, action_inputs)
 
+        aux = getattr(self, "dexwm_auxiliary", None)
+        due = bool(getattr(self, "_dexwm_due", True))
+        use_gt_actions = bool(getattr(self, "dexwm_use_gt_actions", False))
+        return_actions = aux is not None and due and not use_gt_actions
+        action_outputs = self.action_head(
+            backbone_outputs,
+            action_inputs,
+            return_actions=return_actions,
+            action_num_steps=getattr(self, "dexwm_action_num_steps", 1),
+        )
+
+        bc_loss = action_outputs["loss"]
+        # Diagnostic metric aligned with DexWM stride=1: only the first eight
+        # temporal action tokens, while keeping the full BC objective intact.
+        prefix_steps = min(8, int(action_outputs["action_loss"].shape[1]))
+        prefix_action_loss = action_outputs["action_loss"][:, :prefix_steps]
+        prefix_action_mask = action_outputs["action_mask"][:, :prefix_steps].to(
+            dtype=prefix_action_loss.dtype
+        )
+        action_outputs["bc_prefix8_loss"] = (
+            prefix_action_loss.sum()
+            / prefix_action_mask.sum().clamp_min(1.0)
+        ).detach()
+        if aux is None:
+            return action_outputs
+
+        wm_loss = bc_loss.new_zeros(())
+        weighted_wm_loss = wm_loss
+        objective = getattr(self, "dexwm_objective", "bc_plus_wm")
+        if due:
+            self._maybe_move_dexwm()
+            if "dexwm_features" not in action_inputs:
+                raise KeyError(
+                    "DexWM auxiliary loss is enabled but the batch has no dexwm_features. "
+                    "Set data.dexwm_feature_root to the DINO sidecar directory."
+                )
+            if use_gt_actions:
+                predicted_actions = action_inputs["dexwm_gt_action"]
+                actions_are_normalized = False
+            else:
+                sampled = action_outputs["sampled_actions"]
+                stride = int(getattr(self, "dexwm_action_stride", 1))
+                n_ctx = 8
+                action_index = (torch.arange(n_ctx, device=sampled.device) + 1) * stride - 1
+                predicted_actions = sampled[:, action_index, :44]
+                actions_are_normalized = True
+                sampled_error = (sampled - action_inputs["action"]).square()
+                sampled_mask = action_inputs["action_mask"].to(dtype=sampled_error.dtype)
+                action_outputs["sampled_action_mse"] = (
+                    (sampled_error * sampled_mask).sum() / sampled_mask.sum().clamp_min(1.0)
+                ).detach()
+                prefix_sampled_error = sampled_error[:, :prefix_steps]
+                prefix_sampled_mask = sampled_mask[:, :prefix_steps]
+                action_outputs["sampled_prefix8_action_mse"] = (
+                    (prefix_sampled_error * prefix_sampled_mask).sum()
+                    / prefix_sampled_mask.sum().clamp_min(1.0)
+                ).detach()
+            wm_loss = aux(
+                action_inputs["dexwm_features"],
+                predicted_actions,
+                action_inputs["dexwm_state"],
+                action_inputs["dexwm_valid_mask"] if "dexwm_valid_mask" in action_inputs else None,
+                actions_are_normalized=actions_are_normalized,
+            )
+            weighted_wm_loss = float(getattr(self, "dexwm_loss_weight", 0.05)) * wm_loss
+            if objective == "wm_only":
+                action_outputs["loss"] = weighted_wm_loss
+            else:
+                action_outputs["loss"] = bc_loss + weighted_wm_loss
+        elif objective == "wm_only":
+            raise RuntimeError("wm_only objective requires DexWM loss on every optimizer step")
+
+        action_outputs["bc_loss"] = bc_loss.detach()
+        action_outputs["wm_loss"] = wm_loss.detach()
+        action_outputs["weighted_wm_loss"] = weighted_wm_loss.detach()
         return action_outputs
 
     def get_action(self, inputs: dict, options: dict[str, Any] | None = None) -> BatchFeature:

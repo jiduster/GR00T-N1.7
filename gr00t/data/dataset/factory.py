@@ -20,6 +20,7 @@ from tqdm import tqdm
 from gr00t.configs.base_config import Config
 from gr00t.data.dataset.sharded_mixture_dataset import ShardedMixtureDataset
 from gr00t.data.dataset.sharded_single_step_dataset import ShardedSingleStepDataset
+from gr00t.data.dataset.dexwm_sidecar import DexWMSidecarDataset
 from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.data.interfaces import BaseProcessor
 from gr00t.data.stats import generate_rel_stats, generate_stats
@@ -62,7 +63,7 @@ class DatasetFactory:
                     generate_stats(dataset_path)
                     generate_rel_stats(dataset_path, EmbodimentTag(embodiment_tag))
                 barrier()
-                dataset = ShardedSingleStepDataset(
+                dataset_kwargs = dict(
                     dataset_path=dataset_path,
                     embodiment_tag=EmbodimentTag(embodiment_tag),
                     modality_configs=self.config.data.modality_configs[embodiment_tag],
@@ -72,6 +73,15 @@ class DatasetFactory:
                     seed=self.config.data.seed,
                     allow_padding=self.config.data.allow_padding,
                 )
+                feature_root = getattr(self.config.data, "dexwm_feature_root", None)
+                if feature_root:
+                    dataset = DexWMSidecarDataset(
+                        **dataset_kwargs,
+                        feature_root=feature_root,
+                        action_stride=getattr(self.config.data, "dexwm_action_stride", 1),
+                    )
+                else:
+                    dataset = ShardedSingleStepDataset(**dataset_kwargs)
                 datasets.append(dataset)
             dataset_lengths = np.array([len(dataset) for dataset in datasets])
             dataset_relative_lengths = dataset_lengths / dataset_lengths.sum()

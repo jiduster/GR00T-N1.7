@@ -44,6 +44,23 @@ from .image_augmentations import (
 )
 
 
+def _stack_collate_values(values: list[Any]) -> torch.Tensor:
+    """Stack a list of per-sample values into a batched tensor.
+
+    The processor emits torch tensors for state/action, python ints for
+    embodiment_id, and numpy arrays for the DexWM sidecar. HuggingFace's
+    default ``torch.from_numpy(np.stack(...))`` path fails on some of those.
+    """
+    first = values[0]
+    if torch.is_tensor(first):
+        return torch.stack([torch.as_tensor(value) for value in values])
+    if isinstance(first, np.ndarray):
+        stacked = np.ascontiguousarray(np.stack(values))
+        return torch.from_numpy(stacked)
+    return torch.as_tensor(values)
+
+
+
 try:
     from transformers import Qwen3VLProcessor
 except ImportError:
@@ -128,8 +145,8 @@ class Gr00tN1d7DataCollator:
             ):
                 raise Exception("Not implemented")
             else:
-                # state, state_mask, action and action_mask - stack to form batch dimension
-                batch[key] = torch.from_numpy(np.stack(values))
+                # state, action, masks, and optional DexWM sidecar tensors
+                batch[key] = _stack_collate_values(values)
         return BatchFeature(data={"inputs": batch})
 
     def __str__(self):

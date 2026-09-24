@@ -125,3 +125,16 @@ class TrainingConfig:
 
     open_loop_eval_plot_indices: Optional[list[int]] = None
     """List of action indices to plot. If None, plots all indices."""
+
+    # Frozen DexWM auxiliary loss (training only; ignored at inference)
+    enable_dexwm_auxiliary: bool = False
+    dexwm_checkpoint_path: Optional[str] = None
+    dexwm_feature_root: Optional[str] = None
+    dexwm_objective: str = "bc_plus_wm"
+    dexwm_loss_weight: float = 0.05
+    dexwm_update_interval: int = 1
+    dexwm_action_num_steps: int = 1
+    dexwm_dtype: str = "bfloat16"
+    dexwm_root: str = "/data/home/zyh/dexwm"
+    dexwm_use_gt_actions: bool = False
+    dexwm_action_stride: int = 1

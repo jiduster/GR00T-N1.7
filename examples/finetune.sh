@@ -45,6 +45,10 @@ Usage: bash examples/finetune.sh \
   [--episode-sampling-rate <value>] \
   [--use-wandb | --no-use-wandb] \
   [--state-dropout-prob <value>] \
+  [--use-lora] \
+  [--lora-rank <value>] \
+  [--lora-alpha <value>] \
+  [--lora-dropout <value>] \
   [--save-only-model] \
   [-- <extra launch_finetune.py args>...]
 EOF
@@ -132,6 +136,22 @@ while [ "$#" -gt 0 ]; do
             STATE_DROPOUT_PROB="$2"
             shift 2
             ;;
+        --use-lora)
+            USE_LORA=1
+            shift
+            ;;
+        --lora-rank)
+            LORA_RANK="$2"
+            shift 2
+            ;;
+        --lora-alpha)
+            LORA_ALPHA="$2"
+            shift 2
+            ;;
+        --lora-dropout)
+            LORA_DROPOUT="$2"
+            shift 2
+            ;;
         --save-only-model)
             SAVE_ONLY_MODEL=1
             shift
@@ -203,6 +223,18 @@ fi
 
 if [ -n "$STATE_DROPOUT_PROB" ]; then
     LAUNCH_CMD+=(--state_dropout_prob "$STATE_DROPOUT_PROB")
+fi
+if [ -n "${USE_LORA:-}" ]; then
+    LAUNCH_CMD+=(--use_lora)
+fi
+if [ -n "${LORA_RANK:-}" ]; then
+    LAUNCH_CMD+=(--lora_rank "$LORA_RANK")
+fi
+if [ -n "${LORA_ALPHA:-}" ]; then
+    LAUNCH_CMD+=(--lora_alpha "$LORA_ALPHA")
+fi
+if [ -n "${LORA_DROPOUT:-}" ]; then
+    LAUNCH_CMD+=(--lora_dropout "$LORA_DROPOUT")
 fi
 if [ -n "${SAVE_ONLY_MODEL:-}" ]; then
     LAUNCH_CMD+=(--save_only_model)

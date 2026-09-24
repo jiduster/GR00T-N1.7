@@ -96,8 +96,30 @@ class Gr00tPolicy(BasePolicy):
             embodiment_tag = EmbodimentTag.resolve(embodiment_tag)
         model_dir = Path(model_path)
 
-        # Load the pretrained model and move to target device with bfloat16 precision
-        model = AutoModel.from_pretrained(model_dir)
+        # Load the pretrained model and move to target device with bfloat16 precision.
+        # LoRA checkpoints contain adapters plus a fully trained action head, so
+        # reconstruct their base model before attaching the adapter.
+        adapter_config_path = model_dir / "adapter_config.json"
+        if adapter_config_path.exists():
+            import json
+
+            from peft import PeftConfig, PeftModel
+
+            peft_config = PeftConfig.from_pretrained(model_dir)
+            model_overrides = {}
+            final_model_config = model_dir / "experiment_cfg" / "final_model_config.json"
+            if final_model_config.exists():
+                with open(final_model_config, "r") as f:
+                    saved_model_config = json.load(f)
+                if "model_name" in saved_model_config:
+                    model_overrides["model_name"] = saved_model_config["model_name"]
+            base_model = AutoModel.from_pretrained(
+                peft_config.base_model_name_or_path,
+                **model_overrides,
+            )
+            model = PeftModel.from_pretrained(base_model, model_dir)
+        else:
+            model = AutoModel.from_pretrained(model_dir)
         model.eval()  # Set model to evaluation mode
         model.to(device=device, dtype=torch.bfloat16)
         self.model = model

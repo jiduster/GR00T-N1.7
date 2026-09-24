@@ -63,6 +63,18 @@ class FinetuneConfig:
     tune_diffusion_model: bool = True
     """If True, fine-tune the diffusion-based action decoder (if present in the model)."""
 
+    use_lora: bool = False
+    """Enable LoRA for the language backbone while training the action head normally."""
+
+    lora_rank: int = 16
+    """Rank of each LoRA adapter."""
+
+    lora_alpha: int = 32
+    """LoRA scaling factor."""
+
+    lora_dropout: float = 0.05
+    """Dropout probability applied inside LoRA adapters."""
+
     state_dropout_prob: float = 0.2
     """
     Dropout probability applied to state inputs for regularization during training.
@@ -167,3 +179,46 @@ class FinetuneConfig:
     """If True, skip loading model weights from base_model_path (architecture only).
     The processor (tokenizer/config) is still loaded from base_model_path.
     Useful for CI/testing to skip the slow checkpoint shard loading."""
+
+    # --- Frozen DexWM auxiliary loss ---
+    enable_dexwm_auxiliary: bool = False
+    """If True, add a frozen DexWM teacher-forcing feature MSE to the GR00T loss."""
+
+    dexwm_checkpoint_path: str | None = (
+        "/mnt/ceph3/dexwm/outputs/dexjoco_bimanual_teacher_forcing_4task/"
+        "checkpoints/dexjoco_bimanual_teacher_forcing_8.pth.tar"
+    )
+    """Teacher-forcing DexWM checkpoint. The ``_9`` filename in the handoff doc
+    is no longer on disk; ``_8`` is the last snapshot of that run."""
+
+    dexwm_feature_root: str | None = None
+    """Directory of ``episode-XXXXXX.features.npy`` DINO sidecars."""
+
+    dexwm_objective: str = "bc_plus_wm"
+    """Training objective: ``bc_plus_wm`` or ``wm_only``. In ``wm_only`` mode,
+    BC loss is still computed and logged as a diagnostic but is not backpropagated."""
+
+    dexwm_loss_weight: float = 0.05
+    """Weight applied on steps that compute the DexWM loss."""
+
+    dexwm_update_interval: int = 1
+    """Compute DexWM every N optimizer steps. OpenPI's microwave recipe used 8
+    with ``dexwm_loss_weight=0.4`` so the expected coefficient stays ~0.05."""
+
+    dexwm_action_num_steps: int = 1
+    """Differentiable flow-matching Euler steps used to sample VLA actions."""
+
+    dexwm_dtype: str = "bfloat16"
+    """Frozen DexWM compute dtype. ``bfloat16`` or ``float32``."""
+
+    dexwm_root: str = "/data/home/zyh/dexwm"
+    """DexWM source tree used to import ``models.model.DexWM``."""
+
+    dexwm_use_gt_actions: bool = False
+    """If True, feed dataset GT actions into DexWM instead of sampled VLA
+    actions. For alignment sanity checks only; it does not train the VLA."""
+
+    dexwm_action_stride: int = 1
+    """Dataset-frame gap between the 8 DexWM hops. ``1`` is consecutive
+    (first 8 of the 40-step chunk). ``5`` linspaces those hops across the
+    full GR00T action horizon. Must satisfy ``8 * stride <= action_horizon``."""

@@ -77,6 +77,10 @@ if __name__ == "__main__":
     config.model.tune_visual = ft_config.tune_visual
     config.model.tune_projector = ft_config.tune_projector
     config.model.tune_diffusion_model = ft_config.tune_diffusion_model
+    config.model.use_lora = ft_config.use_lora
+    config.model.lora_rank = ft_config.lora_rank
+    config.model.lora_alpha = ft_config.lora_alpha
+    config.model.lora_dropout = ft_config.lora_dropout
     config.model.state_dropout_prob = ft_config.state_dropout_prob
     config.model.random_rotation_angle = ft_config.random_rotation_angle
     config.model.color_jitter_params = ft_config.color_jitter_params
@@ -114,5 +118,18 @@ if __name__ == "__main__":
 
     config.training.save_only_model = ft_config.save_only_model
     config.training.skip_weight_loading = ft_config.skip_weight_loading
+
+    config.training.enable_dexwm_auxiliary = ft_config.enable_dexwm_auxiliary
+    config.training.dexwm_checkpoint_path = ft_config.dexwm_checkpoint_path
+    config.training.dexwm_objective = ft_config.dexwm_objective
+    config.training.dexwm_loss_weight = ft_config.dexwm_loss_weight
+    config.training.dexwm_update_interval = ft_config.dexwm_update_interval
+    config.training.dexwm_action_num_steps = ft_config.dexwm_action_num_steps
+    config.training.dexwm_dtype = ft_config.dexwm_dtype
+    config.training.dexwm_root = ft_config.dexwm_root
+    config.training.dexwm_use_gt_actions = ft_config.dexwm_use_gt_actions
+    config.training.dexwm_action_stride = ft_config.dexwm_action_stride
+    config.data.dexwm_feature_root = ft_config.dexwm_feature_root
+    config.data.dexwm_action_stride = ft_config.dexwm_action_stride
 
     run(config)

@@ -93,3 +93,8 @@ class DataConfig:
     image_crop_size: List[int] = field(default_factory=lambda: [244, 244])
     image_target_size: List[int] = field(default_factory=lambda: [224, 224])
     video_backend: str = "torchcodec"
+
+    # Optional DexWM DINO sidecar root. When set, each dataset is wrapped so
+    # training batches include teacher-forcing features and raw state/action.
+    dexwm_feature_root: Optional[str] = None
+    dexwm_action_stride: int = 1

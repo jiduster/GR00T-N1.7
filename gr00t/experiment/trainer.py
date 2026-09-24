@@ -301,6 +301,12 @@ class Gr00tTrainer(Trainer):
         """
 
         # Use parent implementation to preserve built-in functionality.
+        unwrapped = self.accelerator.unwrap_model(model)
+        aux = getattr(unwrapped, "dexwm_auxiliary", None)
+        if aux is not None:
+            interval = int(getattr(unwrapped, "dexwm_update_interval", 1))
+            object.__setattr__(unwrapped, "_dexwm_due", (self.state.global_step % interval) == 0)
+
         loss, outputs = super().compute_loss(
             model,
             inputs,
@@ -316,6 +322,26 @@ class Gr00tTrainer(Trainer):
 
         # Record last loss for testing purposes.
         self.loss = loss
+
+        if (
+            aux is not None
+            and self.state.global_step % self.args.logging_steps == 0
+            and model.training
+        ):
+            logs = {}
+            for key in (
+                "bc_loss",
+                "bc_prefix8_loss",
+                "wm_loss",
+                "weighted_wm_loss",
+                "sampled_action_mse",
+                "sampled_prefix8_action_mse",
+            ):
+                value = outputs[key] if isinstance(outputs, dict) and key in outputs else getattr(outputs, key, None)
+                if torch.is_tensor(value):
+                    logs[key] = value.detach().float().mean().item()
+            if logs:
+                self.log(logs)
 
         # --------------------------------------------------------------
         # Accuracy calculation

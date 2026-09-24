@@ -235,7 +235,13 @@ class ShardedSingleStepDataset(ShardedDataset):
         """Return the number of shards in the dataset."""
         return len(self.shard_lengths)
 
-    def get_datapoint(self, episode_data: pd.DataFrame, step_index: int) -> dict:
+    def get_datapoint(
+        self,
+        episode_data: pd.DataFrame,
+        step_index: int,
+        episode_index: int | None = None,
+        episode_length: int | None = None,
+    ) -> dict:
         """
         Extract and process a single timestep from episode data.
 

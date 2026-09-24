@@ -74,6 +74,49 @@ class Gr00tN1d7Pipeline(ModelPipeline):
         self.model = self._create_model()
         self.train_dataset, self.eval_dataset = self._create_dataset(self.save_cfg_dir)
         self.data_collator = self._create_collator()
+        self._attach_dexwm()
+
+    def _attach_dexwm(self):
+        if not getattr(self.config.training, "enable_dexwm_auxiliary", False):
+            return
+        from gr00t.model.dexwm_auxiliary import (
+            FrozenDexWMAuxiliary,
+            attach_frozen_dexwm,
+            build_group_unnormalizer,
+        )
+
+        feature_root = getattr(self.config.data, "dexwm_feature_root", None)
+        checkpoint_path = self.config.training.dexwm_checkpoint_path
+        if not feature_root:
+            raise ValueError("enable_dexwm_auxiliary requires --dexwm_feature_root")
+        if not checkpoint_path:
+            raise ValueError("enable_dexwm_auxiliary requires --dexwm_checkpoint_path")
+        if not self.config.data.datasets:
+            raise ValueError("enable_dexwm_auxiliary requires a training dataset")
+
+        embodiment_tag = self.config.data.datasets[0].embodiment_tag
+        unnormalizer = build_group_unnormalizer(self.processor, embodiment_tag)
+        if torch.cuda.is_available():
+            device = torch.device(f"cuda:{torch.cuda.current_device()}")
+        else:
+            device = torch.device("cpu")
+        auxiliary = FrozenDexWMAuxiliary(
+            checkpoint_path=checkpoint_path,
+            unnormalizer=unnormalizer,
+            device=device,
+            dexwm_root=self.config.training.dexwm_root,
+            dtype=self.config.training.dexwm_dtype,
+        )
+        attach_frozen_dexwm(
+            self.model,
+            auxiliary,
+            objective=self.config.training.dexwm_objective,
+            loss_weight=self.config.training.dexwm_loss_weight,
+            update_interval=self.config.training.dexwm_update_interval,
+            action_num_steps=self.config.training.dexwm_action_num_steps,
+            use_gt_actions=self.config.training.dexwm_use_gt_actions,
+            action_stride=getattr(self.config.training, "dexwm_action_stride", 1),
+        )
 
     def _create_model(self):
         """Setup model with proper vocabulary expansion."""
@@ -130,6 +173,10 @@ class Gr00tN1d7Pipeline(ModelPipeline):
         if get_rank() == 0:
             with open(self.save_cfg_dir / "final_model_config.json", "w") as f:
                 f.write(model.config.to_filtered_json())
+
+        if self.model_config.use_lora:
+            model = self._apply_lora(model)
+
         # Print parameter statistics
         total_params = sum(p.numel() for p in model.parameters())
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -139,6 +186,33 @@ class Gr00tN1d7Pipeline(ModelPipeline):
         )
         logging.debug(f"Model architecture: {model}")
 
+        return model
+
+    def _apply_lora(self, model: Gr00tN1d7):
+        """Add language-attention LoRA adapters and retain a trainable action head."""
+        if self.model_config.tune_llm:
+            raise ValueError("use_lora and tune_llm cannot both be enabled")
+        if self.model_config.tune_visual:
+            raise ValueError("LoRA mode expects the visual backbone to remain frozen")
+
+        from peft import LoraConfig, get_peft_model
+
+        # Restrict adapters to the language self-attention projections. A
+        # bare ["q_proj", ...] list would also match the vision tower.
+        # Point base_model_name_or_path at the GR00T checkpoint so inference
+        # can reconstruct the full VLA before attaching adapters.
+        lora_config = LoraConfig(
+            r=self.model_config.lora_rank,
+            lora_alpha=self.model_config.lora_alpha,
+            lora_dropout=self.model_config.lora_dropout,
+            target_modules=r"(?:^|\.)language_model\.(?:.*\.)?(q_proj|k_proj|v_proj|o_proj)$",
+            modules_to_save=["action_head"],
+            bias="none",
+            base_model_name_or_path=self.config.training.start_from_checkpoint,
+        )
+        model = get_peft_model(model, lora_config)
+        if get_rank() == 0:
+            model.print_trainable_parameters()
         return model
 
     def _get_statistics(

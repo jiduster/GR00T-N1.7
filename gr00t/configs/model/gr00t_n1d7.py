@@ -50,6 +50,14 @@ class Gr00tN1d7Config(PretrainedConfig):
     load_bf16: bool = False  # Enable BF16 loading
     backbone_trainable_params_fp32: bool = True
 
+    # Parameter-efficient fine-tuning. LoRA is injected into the language
+    # attention projections after loading the base GR00T checkpoint. The
+    # action head remains fully trainable and is stored with the adapter.
+    use_lora: bool = False
+    lora_rank: int = 16
+    lora_alpha: int = 32
+    lora_dropout: float = 0.05
+
     ### Processing parameters
     image_crop_size: tuple[int, int] | None = (230, 230)
     image_target_size: tuple[int, int] | None = (256, 256)
